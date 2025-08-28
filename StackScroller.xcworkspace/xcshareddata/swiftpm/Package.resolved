@@ -1,0 +1,15 @@
+{
+  "originHash" : "57fdefb6c13dcb6dc7fe6cbb82352900f9a5e7e1dbe5868c1a03a989df929530",
+  "pins" : [
+    {
+      "identity" : "yang",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/huangwenfei/Yang",
+      "state" : {
+        "revision" : "31ba591d1da0d5461a0cbc2b5eaf661f0dd38be8",
+        "version" : "0.0.2"
+      }
+    }
+  ],
+  "version" : 3
+}
