@@ -310,13 +310,18 @@ public protocol StackScrollViewFuncProtocol: UIView {
     
     func previewPage()
     func nextPage()
+    /// If there are no items on the current page, we will automatically jump to the last item.
     func loopPreviewPage()
+    /// When there are no more items, it will automatically jump to the first item.
     func loopNextPage()
     
     func update(currentPage: Int)
     
+    /// Start scrolling is called
     var beginScroll: StackBeginScrollClosure? { get set }
+    /// Called when scrolling changes
     var changeScroll: StackChangeScrollClosure? { get set }
+    /// Is called to end scrolling
     var endScroll: StackEndScrollClosure? { get set }
     
 }

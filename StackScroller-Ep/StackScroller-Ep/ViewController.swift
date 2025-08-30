@@ -25,19 +25,6 @@ class ViewController: UIViewController {
                 size: .rect(150),
                 insets: .zero
             ))
-//             .normalCenterScale(configs: .init(
-//                scaleStep: 0.2,
-//                size: .rect(240),
-//                spacing: 10,
-//                insets: .zero
-//             ))
-//            .normal(configs: .init(
-//                isFillPage: true, // false, //
-//                size: .rect(240),
-//                spacing: 20,
-//                insets: .init(value: 10)
-//            ))
-            // .normal(configs: .simpleUnfill)
         )
         view.setBeginObserver { stack in
             print(#function, #line, "Begin")
@@ -83,7 +70,15 @@ class ViewController: UIViewController {
         let button = UISegmentedControl(items: ["Normal", "NormalScale", "Stack"])
         button.addTarget(self, action: #selector(updateMode(sender:)), for: .valueChanged)
         button.tintColor = .blue
-        button.backgroundColor = .blue.withAlphaComponent(0.1)
+        button.setTitleTextAttributes([
+            .font: UIFont.systemFont(ofSize: 16),
+            .foregroundColor: UIColor.white.withAlphaComponent(0.6)
+        ], for: .normal)
+        button.setTitleTextAttributes([
+            .font: UIFont.systemFont(ofSize: 18),
+            .foregroundColor: UIColor.blue
+        ], for: .selected)
+        button.backgroundColor = .blue.withAlphaComponent(0.2)
         return button
     }()
     
@@ -162,7 +157,7 @@ class ViewController: UIViewController {
         switch mode {
         case .normal:
             richMode = .normal(configs: .init(
-                isFillPage: false,
+                isFillPage: true, // false,
                 size: .rect(240),
                 spacing: 20,
                 insets: .init(value: 10)
