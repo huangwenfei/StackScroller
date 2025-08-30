@@ -723,7 +723,7 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
             let value = self.loopPage.next(current: item.page, isLoop: true)
             let frame = self.transformFrame(by: value)
             item.frame = currentFrame.progress(progress, target: frame)
-            print(#function, #line, item.page, progress, currentFrame, frame, item.frame)
+//            print(#function, #line, item.page, progress, currentFrame, frame, item.frame)
         }
     }
     
@@ -733,7 +733,7 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
             let value = self.loopPage.preview(current: item.page, isLoop: true)
             let frame = self.transformFrame(by: value)
             item.frame = currentFrame.progress(progress, target: frame)
-            print(#function, #line, item.page, progress, currentFrame, frame, item.frame)
+//            print(#function, #line, item.page, progress, currentFrame, frame, item.frame)
         }
     }
     

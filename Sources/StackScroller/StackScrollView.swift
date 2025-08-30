@@ -247,6 +247,18 @@ public enum StackScrollViewMode: Hashable {
     case normal(configs: StackNormalViewConfiguration)
     case normalCenterScale(configs: StackNormalCenterScaleViewConfiguration)
     case centerScale(configs: StackCenterScaleViewConfiguration)
+    
+    public var intMode: StackScrollViewIntMode {
+        switch self {
+        case .normal:            return .normal
+        case .normalCenterScale: return .normalCenterScale
+        case .centerScale:       return .centerScale
+        }
+    }
+}
+
+public enum StackScrollViewIntMode: Int, Hashable {
+    case normal, normalCenterScale, centerScale
 }
 
 // MARK: - StackScrollView
@@ -497,9 +509,17 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
             count: container.count,
             pageChange: container.pageChange
         )
+        self.mode = mode
         
         container.yang.addToParent(self)
+        
         setNeedsUpdateConstraints()
+        setNeedsLayout()
+        setNeedsDisplay()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.update(currentPage: self.container.currentPage)
+        }
         
     }
     

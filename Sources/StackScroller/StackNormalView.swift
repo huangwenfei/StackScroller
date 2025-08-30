@@ -98,11 +98,20 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     
     open func adjustContentSize(by count: Int) {
         
+        let spacing = configuration.spacing
         let itemFrame = self.itemFrame(at: 0)
-        container.contentSize = .init(
-            width: itemFrame.minX + (itemFrame.width + configuration.spacing) * .init(count),
-            height: bounds.height
-        )
+        
+        if configuration.isFillPage {
+            container.contentSize = .init(
+                width: itemFrame.minX * 2 + (frame.width + spacing) * .init(count) + spacing,
+                height: bounds.height
+            )
+        } else {
+            container.contentSize = .init(
+                width: itemFrame.minX + (itemFrame.width + spacing) * .init(count),
+                height: bounds.height
+            )
+        }
         
     }
     
