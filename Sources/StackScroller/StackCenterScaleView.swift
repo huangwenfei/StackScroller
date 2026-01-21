@@ -547,9 +547,12 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
 
         guard vaildPage(page) else { return nil }
         
+        let state: StackScrollContentState = .init(isSelected: page == currentPage)
+        
         if let item = visiableItems.first(where: { $0.page == page }) {
             item.frame = itemFrame(at: page)
             item.scaleStepZIndex = loopPage.zIndex(page: page)
+            item.update(state: state)
             itemAnimatingIfNeed(item, isShow: true)
 //            print("====>>", #function, #line, "visiable", page, item.frame)
             return item
@@ -561,7 +564,8 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
             item.scaleStepZIndex = loopPage.zIndex(page: page)
             container.addSubview(item)
             visiableItems.append(item)
-            renderIfNeed(page: page, item: item) { [weak self] in
+            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item, state: state) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "reuseable", page, item.frame, item.scaleStepZIndex)
@@ -574,7 +578,8 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
             item.scaleStepZIndex = loopPage.zIndex(page: page)
             container.addSubview(item)
             visiableItems.append(item)
-            renderIfNeed(page: page, item: item) { [weak self] in
+            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item, state: state) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "create", page, item.frame, item.scaleStepZIndex)
@@ -743,6 +748,13 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
 //        print(#function, #line, page, level, offsetWidth, totalOffsetWidths, CGRect(x: x, y: y, width: itemWidth, height: itemHeight))
         
         return CGRect(x: x, y: y, width: itemWidth, height: itemHeight)
+    }
+    
+    // MARK: Relayout
+    open func relayout() {
+        layoutElements(by: currentPage)
+        rerangeElements(currentPage: currentPage)
+        transformElements(currentPage: currentPage)
     }
     
     // MARK: Scroll

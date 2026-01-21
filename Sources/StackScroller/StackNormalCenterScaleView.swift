@@ -328,7 +328,7 @@ where Content: StackScrollContent
             visiableRect: visiableRect
         )
         
-//        print("......", #function, #line, currentPage, visiableRect, centerItem.frame, visiableItems.map({ ($0.page, $0.frame) }))
+        print("......", #function, #line, currentPage, visiableRect, visiableItems.map({ ($0.page, $0.frame) }))
 //        print("After", #function, #line, currentPage, edges, visiableItems.map({ $0.page }))
         
     }
@@ -355,7 +355,7 @@ where Content: StackScrollContent
         while vaildPage(dealingPage) {
             
             let frame = itemFrame(at: dealingPage)
-//                    print("---->>>", #function, #line, isLeft, currentPage, item.frame)
+//            print("---->>>", #function, #line, isLeft, currentPage, frame)
             
             if self.isItemContains(frame, isLeft: isLeft, in: visiableRect) {
                 item(for: dealingPage)
@@ -508,7 +508,10 @@ where Content: StackScrollContent
 
         guard vaildPage(page) else { return nil }
         
+        let state: StackScrollContentState = .init(isSelected: page == currentPage)
+        
         if let item = visiableItems.first(where: { $0.page == page }) {
+            item.update(state: state)
             itemAnimatingIfNeed(item, isShow: true)
 //            print("====>>", #function, #line, "visiable", page, item.frame)
             return item
@@ -519,7 +522,8 @@ where Content: StackScrollContent
             item.page = page
             container.addSubview(item)
             visiableItems.append(item)
-            renderIfNeed(page: page, item: item) { [weak self] in
+            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item, state: state) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "reuseable", page, item.frame)
@@ -531,7 +535,8 @@ where Content: StackScrollContent
             item.page = page
             container.addSubview(item)
             visiableItems.append(item)
-            renderIfNeed(page: page, item: item) { [weak self] in
+            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item, state: state) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "create", page, item.frame)
@@ -627,6 +632,13 @@ where Content: StackScrollContent
         let x = (page * (itemWidth + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5)
         
         return CGRect(x: x, y: y, width: itemWidth, height: itemHeight)
+    }
+    
+    // MARK: Relayout
+    open func relayout() {
+        adjustContentSize(by: count)
+        layoutElements(by: currentPage)
+        transformElements(currentPage: currentPage)
     }
     
     // MARK: Scroll

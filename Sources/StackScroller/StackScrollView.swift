@@ -7,22 +7,37 @@
 
 import UIKit
 
+// MARK: StackScrollContentState
+public struct StackScrollContentState: Hashable {
+    
+    public var isSelected: Bool
+    
+    public init(isSelected: Bool = false) {
+        self.isSelected = isSelected
+    }
+    
+}
+
 // MARK: StackScrollContent
  
 public protocol StackScrollContent: UIView {
     associatedtype Model: Hashable
     var isDisplayed: Bool { get set }
     var page: Int { get set }
-    func renderPlaceholder()
-    func render(model: Model)
+    func renderPlaceholder(state: StackScrollContentState)
+    func render(model: Model, state: StackScrollContentState)
+    func update(state: StackScrollContentState)
     func prepareForReuse()
 }
 
 extension StackScrollContent {
     
-    internal func renderIfNeed(model: Model) {
-        guard isDisplayed == false else { return }
-        render(model: model)
+    internal func renderIfNeed(model: Model, state: StackScrollContentState) {
+        guard isDisplayed == false else {
+            update(state: state)
+            return
+        }
+        render(model: model, state: state)
         isDisplayed = true
     }
     
@@ -330,14 +345,14 @@ extension StackScrollViewProtocol {
 
 extension StackScrollViewProtocol {
     
-    func renderIfNeed(page: Int, item: Content, completion: @escaping () -> Void) {
+    func renderIfNeed(page: Int, item: Content, state: StackScrollContentState, completion: @escaping () -> Void) {
         
         func gcdRender() {
             DispatchQueue.global().async { [weak self] in
                 guard let self else { return }
                 guard let model = sourceProviderLegacy?(page) else { return }
                 DispatchQueue.main.async {
-                    item.renderIfNeed(model: model)
+                    item.renderIfNeed(model: model, state: state)
                     completion()
                 }
             }
@@ -349,14 +364,14 @@ extension StackScrollViewProtocol {
                 guard let self else { return }
                 guard let model = await sourceProviderAsync?(page) else { return }
                 await MainActor.run {
-                    item.renderIfNeed(model: model)
+                    item.renderIfNeed(model: model, state: state)
                     completion()
                 }
             }
         }
         
         if item.isDisplayed == false {
-            item.renderPlaceholder()
+            item.renderPlaceholder(state: state)
         }
         
 //        if isAsyncSource, #available(iOS 13.0, *) {
@@ -407,6 +422,8 @@ public protocol StackScrollViewConfigProtocol: Hashable {
 
 
 public protocol StackScrollViewFuncProtocol: UIView {
+    
+    func relayout()
     
     func previewPage()
     func nextPage()
@@ -652,6 +669,10 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
     }
     
     // MARK: StackScrollViewFuncProtocol
+    open func relayout() {
+        self.container.relayout()
+    }
+    
     open func previewPage() {
         container.previewPage()
     }
@@ -857,13 +878,17 @@ public final class StackColorItem: UIView, StackScrollContent {
         layer.shadowPath = UIBezierPath(rect: bounds).cgPath
     }
     
-    public func renderPlaceholder() {
+    public func renderPlaceholder(state: StackScrollContentState) {
         backgroundColor = .purple
     }
     
-    public func render(model: Model) {
+    public func render(model: Model, state: StackScrollContentState) {
         text.text = "\(page)-\(model)"
         backgroundColor = Self.colors[page % Self.colors.count]
+    }
+    
+    public func update(state: StackScrollContentState) {
+        
     }
     
     public func prepareForReuse() {

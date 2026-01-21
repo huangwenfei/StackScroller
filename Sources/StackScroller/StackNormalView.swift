@@ -423,7 +423,10 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         
         guard vaildPage(page) else { return nil }
         
+        let state: StackScrollContentState = .init(isSelected: page == currentPage)
+        
         if let item = visiableItems.first(where: { $0.page == page }) {
+            item.update(state: state)
             itemAnimatingIfNeed(item, isShow: true)
 //            print("====>>", #function, #line, "visiable", page, item.frame)
             return item
@@ -434,7 +437,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             item.page = page
             container.addSubview(item)
             visiableItems.append(item)
-            renderIfNeed(page: page, item: item) { [weak self] in
+            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item, state: state) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "reuseable", page, item.frame)
@@ -446,7 +450,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             item.page = page
             container.addSubview(item)
             visiableItems.append(item)
-            renderIfNeed(page: page, item: item) { [weak self] in
+            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item, state: state) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "create", page, item.frame)
@@ -544,6 +549,12 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         }
         
         return CGRect(x: x, y: y, width: itemWidth, height: itemHeight)
+    }
+    
+    // MARK: Relayout
+    open func relayout() {
+        adjustContentSize(by: count)
+        layoutElements(by: currentPage)
     }
     
     // MARK: Scroll
