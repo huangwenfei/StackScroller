@@ -8,13 +8,16 @@
 import UIKit
 import Yang
 
-open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
-    where Content: StackScrollContent
+open class StackCenterScaleView<Content, Model>: UIView, UIScrollViewDelegate, StackScrollViewProtocol
+where Content: StackScrollContent, Model: Hashable, Content.Model == Model
 {
     
     // MARK: Type
     public typealias Content = Content
     public typealias Configuration = StackCenterScaleViewConfiguration
+    
+    public typealias SourceProviderLegacy = (_ page: Int) -> Content.Model
+    public typealias SourceProviderAsync = (_ page: Int) async -> Content.Model
     
     // MARK: Properties - Base
     open var oldCurrentPage: Int = 0
@@ -24,6 +27,16 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
     
     open var count: Int = 0
     open private(set) var configuration: Configuration
+    
+    open private(set) var isAsyncSource: Bool
+    open private(set) var sourceProviderLegacy: SourceProviderLegacy?
+    
+    @available(iOS 13.0, *)
+    open private(set) var sourceProviderAsync: SourceProviderAsync? {
+        get { _sourceProviderAsync }
+        set { _sourceProviderAsync = newValue }
+    }
+    private var _sourceProviderAsync: SourceProviderAsync?
     
     open var pageChange: PageChangeClosure
     
@@ -46,22 +59,43 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
     open var endScroll: StackEndScrollClosure? = nil
     
     // MARK: Init
-    public convenience init() {
-        self.init(frame: .zero, currentPage: 0, count: 0, configuration: .init())
-    }
-    
     public init(
         frame: CGRect = .zero,
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        sourceProviderLegacy: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
-        self.configuration = configuration
+        self.isAsyncSource = false
+        self.sourceProviderLegacy = sourceProviderLegacy
+        self._sourceProviderAsync = nil
         self.pageChange = pageChange
+        self.configuration = configuration
+        super.init(frame: frame)
+        commit()
+    }
+    
+    @available(iOS 13.0, *)
+    public init(
+        frame: CGRect = .zero,
+        currentPage: Int = 0,
+        count: Int,
+        configuration: Configuration,
+        sourceProviderAsync: SourceProviderAsync?,
+        pageChange: @escaping PageChangeClosure = { _,_ in }
+    ) {
+        self.oldCurrentPage = currentPage
+        self.currentPage = currentPage
+        self.count = count
+        self.isAsyncSource = true
+        self.sourceProviderLegacy = nil
+        self._sourceProviderAsync = sourceProviderAsync
+        self.pageChange = pageChange
+        self.configuration = configuration
         super.init(frame: frame)
         commit()
     }
@@ -76,6 +110,8 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
     }
     
     deinit {
+        sourceProviderLegacy = nil
+        _sourceProviderAsync = nil
         pageChange = { _,_ in }
         visiableItems = []
         reuseableItems = []
@@ -525,10 +561,11 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
             item.frame = itemFrame(at: page)
             item.page = page
             item.scaleStepZIndex = loopPage.zIndex(page: page)
-            item.renderIfNeed()
             container.addSubview(item)
             visiableItems.append(item)
-            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item) { [weak self] in
+                self?.itemAnimating(item, isShow: true)
+            }
 //            print("====>>", #function, #line, "reuseable", page, item.frame, item.scaleStepZIndex)
             return item
         }
@@ -537,10 +574,11 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
             item.tag = page
             item.page = page
             item.scaleStepZIndex = loopPage.zIndex(page: page)
-            item.renderIfNeed()
             container.addSubview(item)
             visiableItems.append(item)
-            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item) { [weak self] in
+                self?.itemAnimating(item, isShow: true)
+            }
 //            print("====>>", #function, #line, "create", page, item.frame, item.scaleStepZIndex)
             return item
         }
@@ -843,6 +881,23 @@ open class StackCenterScaleView<Content>: UIView, StackScrollViewProtocol
         layoutElements(by: self.currentPage)
         rerangeElements(currentPage: self.currentPage)
         transformElements(currentPage: self.currentPage)
+    }
+    
+    open func update(source: SourceProviderLegacy?) {
+        isAsyncSource = false
+        sourceProviderLegacy = source
+        reuseableItems.forEach({ $0.resetForReuse() })
+        visiableItems.forEach({ $0.resetForReuse() })
+        _update(currentPage: currentPage)
+    }
+    
+    @available(iOS 13.0, *)
+    open func update(source: SourceProviderAsync?) {
+        isAsyncSource = true
+        _sourceProviderAsync = source
+        reuseableItems.forEach({ $0.resetForReuse() })
+        visiableItems.forEach({ $0.resetForReuse() })
+        _update(currentPage: currentPage)
     }
     
 }

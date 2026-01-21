@@ -10,17 +10,19 @@ import UIKit
 // MARK: StackScrollContent
  
 public protocol StackScrollContent: UIView {
+    associatedtype Model: Hashable
     var isDisplayed: Bool { get set }
     var page: Int { get set }
-    func render()
+    func renderPlaceholder()
+    func render(model: Model)
     func prepareForReuse()
 }
 
 extension StackScrollContent {
     
-    internal func renderIfNeed() {
+    internal func renderIfNeed(model: Model) {
         guard isDisplayed == false else { return }
-        render()
+        render(model: model)
         isDisplayed = true
     }
     
@@ -272,15 +274,75 @@ public protocol StackScrollViewProtocol: UIView, StackScrollViewFuncProtocol {
     var oldCurrentPage: Int { get set }
     var currentPage: Int { get set }
     var count: Int { get set }
+    
+    var isAsyncSource: Bool { get }
+    var sourceProviderLegacy: ((_ page: Int) -> Content.Model)? { get }
+    @available(iOS 13.0, *)
+    var sourceProviderAsync: ((_ page: Int) async -> Content.Model)? { get }
+    
     var pageChange: PageChangeClosure { get set }
     
     var visiableItems: [Content] { get } // 无序
     var reuseableItems: [Content] { get } // 无序
     
+    func update(source: ((_ page: Int) -> Content.Model)?)
+    @available(iOS 13.0, *)
+    func update(source: ((_ page: Int) async -> Content.Model)?)
+    
 }
 
 extension StackScrollViewProtocol {
     public typealias PageChangeClosure = (_ old: Int, _ new: Int) -> Void
+}
+
+extension StackScrollViewProtocol {
+    
+    func renderIfNeed(page: Int, item: Content, completion: @escaping () -> Void) {
+        
+        func gcdRender() {
+            DispatchQueue.global().async { [weak self] in
+                guard let self else { return }
+                guard let model = sourceProviderLegacy?(page) else { return }
+                DispatchQueue.main.async {
+                    item.renderIfNeed(model: model)
+                    completion()
+                }
+            }
+        }
+        
+        @available(iOS 13.0, *)
+        func taskRender() {
+            Task.detached { [weak self] in
+                guard let self else { return }
+                guard let model = await sourceProviderAsync?(page) else { return }
+                await MainActor.run {
+                    item.renderIfNeed(model: model)
+                    completion()
+                }
+            }
+        }
+        
+        if item.isDisplayed == false {
+            item.renderPlaceholder()
+        }
+        
+//        if isAsyncSource, #available(iOS 13.0, *) {
+//            print(#function, #line, sourceProviderLegacy, sourceProviderAsync)
+//        } else {
+//            print(#function, #line, sourceProviderLegacy)
+//        }
+        
+        if isAsyncSource, #available(iOS 13.0, *) {
+            if sourceProviderAsync != nil {
+                taskRender()
+            } else {
+                gcdRender()
+            }
+        } else {
+            gcdRender()
+        }
+    }
+    
 }
 
 extension StackScrollViewProtocol {
@@ -347,15 +409,27 @@ extension StackScrollViewFuncProtocol {
 }
 
 
-open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
-    where Content: StackScrollContent
+open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
+    where Content: StackScrollContent, Model: Hashable, Model == Content.Model
 {
     // MARK: Type
+    public typealias SourceProviderLegacy = (_ page: Int) -> Content.Model
+    public typealias SourceProviderAsync = (_ page: Int) async -> Content.Model
     public typealias PageChangeClosure = StackScrollViewProtocol.PageChangeClosure
     
     // MARK: Properties
     open var mode: StackScrollViewMode
     open private(set) var container: (any StackScrollViewProtocol)!
+    
+    open private(set) var isAsyncSource: Bool
+    open private(set) var sourceProviderLegacy: SourceProviderLegacy?
+    
+    @available(iOS 13.0, *)
+    open private(set) var sourceProviderAsync: SourceProviderAsync? {
+        get { _sourceProviderAsync }
+        set { _sourceProviderAsync = newValue }
+    }
+    private var _sourceProviderAsync: SourceProviderAsync?
     
     // MARK: Properties - Container Page
     open var currentPage: Int {
@@ -383,83 +457,137 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
     }
     
     // MARK: Init
-    public convenience init() {
-        self.init(
-            frame: .zero,
-            currentPage: 0,
-            count: 0,
-            mode: .normal(configs: .simple)
-        )
-    }
-    
     public init(
         frame: CGRect = .zero,
         currentPage: Int = 0,
         count: Int,
         mode: StackScrollViewMode,
+        sourceProviderLegacy: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.mode = mode
+        self.isAsyncSource = false
         super.init(frame: frame)
         
-        commit(
-            mode: mode,
+        self.sourceProviderLegacy = sourceProviderLegacy
+        self._sourceProviderAsync = nil
+        
+        createContainer(
+            by: mode,
             currentPage: currentPage,
             count: count,
+            sourceProviderLegacy: sourceProviderLegacy,
             pageChange: pageChange
         )
+        container.yang.addToParent(self)
+    }
+    
+    @available(iOS 13.0, *)
+    public init(
+        frame: CGRect = .zero,
+        currentPage: Int = 0,
+        count: Int,
+        mode: StackScrollViewMode,
+        sourceProviderAsync: SourceProviderAsync?,
+        pageChange: @escaping PageChangeClosure = { _,_ in }
+    ) {
+        self.mode = mode
+        self.isAsyncSource = true
+        super.init(frame: frame)
+        
+        self.sourceProviderLegacy = nil
+        self._sourceProviderAsync = sourceProviderAsync
+        
+        createContainer(
+            by: mode,
+            currentPage: currentPage,
+            count: count,
+            sourceProviderAsync: sourceProviderAsync,
+            pageChange: pageChange
+        )
+        container.yang.addToParent(self)
     }
     
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private func commit(
-        mode: StackScrollViewMode,
-        currentPage: Int = 0,
-        count: Int,
-        pageChange: @escaping PageChangeClosure = { _,_ in }
-    ) {
-        createContainer(
-            by: mode,
-            currentPage: currentPage,
-            count: count,
-            pageChange: pageChange
-        )
-        container.yang.addToParent(self)
-    }
-    
     private func createContainer(
         by mode: StackScrollViewMode,
         currentPage: Int = 0,
         count: Int,
+        sourceProviderLegacy: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         switch mode {
         case .normal(let configs):
-            container = StackNormalView<Content>(
+            container = StackNormalView<Content, Model>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                sourceProviderLegacy: sourceProviderLegacy,
                 pageChange: pageChange
             )
             
         case .normalCenterScale(let configs):
-            container = StackNormalCenterScaleView<Content>(
+            container = StackNormalCenterScaleView<Content, Model>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                sourceProviderLegacy: sourceProviderLegacy,
                 pageChange: pageChange
             )
             
         case .centerScale(let configs):
-            container = StackCenterScaleView<Content>(
+            container = StackCenterScaleView<Content, Model>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                sourceProviderLegacy: sourceProviderLegacy,
+                pageChange: pageChange
+            )
+        }
+    }
+    
+    @available(iOS 13.0, *)
+    private func createContainer(
+        by mode: StackScrollViewMode,
+        currentPage: Int = 0,
+        count: Int,
+        sourceProviderAsync: SourceProviderAsync?,
+        pageChange: @escaping PageChangeClosure = { _,_ in }
+    ) {
+        switch mode {
+        case .normal(let configs):
+            container = StackNormalView<Content, Model>(
+                frame: frame,
+                currentPage: currentPage,
+                count: count,
+                configuration: configs,
+                sourceProviderAsync: sourceProviderAsync,
+                pageChange: pageChange
+            )
+            
+        case .normalCenterScale(let configs):
+            container = StackNormalCenterScaleView<Content, Model>(
+                frame: frame,
+                currentPage: currentPage,
+                count: count,
+                configuration: configs,
+                sourceProviderAsync: sourceProviderAsync,
+                pageChange: pageChange
+            )
+            
+        case .centerScale(let configs):
+            container = StackCenterScaleView<Content, Model>(
+                frame: frame,
+                currentPage: currentPage,
+                count: count,
+                configuration: configs,
+                sourceProviderAsync: sourceProviderAsync,
                 pageChange: pageChange
             )
         }
@@ -508,12 +636,23 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
         container.yang.removeConstraints()
         container.yang.removeFromParent()
         
-        createContainer(
-            by: mode,
-            currentPage: container.currentPage,
-            count: container.count,
-            pageChange: container.pageChange
-        )
+        if isAsyncSource, #available(iOS 13.0, *) {
+            createContainer(
+                by: mode,
+                currentPage: container.currentPage,
+                count: container.count,
+                sourceProviderAsync: sourceProviderAsync,
+                pageChange: container.pageChange
+            )
+        } else {
+            createContainer(
+                by: mode,
+                currentPage: container.currentPage,
+                count: container.count,
+                sourceProviderLegacy: sourceProviderLegacy,
+                pageChange: container.pageChange
+            )
+        }
         self.mode = mode
         
         container.yang.addToParent(self)
@@ -528,12 +667,65 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
         
     }
     
+    open func update(source: SourceProviderLegacy?) {
+        isAsyncSource = false
+        sourceProviderLegacy = source
+        
+        switch mode {
+        case .normal(let configs):
+            guard let container = container as? StackNormalView<Content, Model> else {
+                return
+            }
+            container.update(source: source)
+            
+        case .normalCenterScale(let configs):
+            guard let container = container as? StackNormalCenterScaleView<Content, Model> else {
+                return
+            }
+            container.update(source: source)
+            
+        case .centerScale(let configs):
+            guard let container = container as? StackCenterScaleView<Content, Model> else {
+                return
+            }
+            container.update(source: source)
+        }
+    }
+    
+    @available(iOS 13.0, *)
+    open func update(source: SourceProviderAsync?) {
+        isAsyncSource = true
+        _sourceProviderAsync = source
+        
+        switch mode {
+        case .normal(let configs):
+            guard let container = container as? StackNormalView<Content, Model> else {
+                return
+            }
+            container.update(source: source)
+            
+        case .normalCenterScale(let configs):
+            guard let container = container as? StackNormalCenterScaleView<Content, Model> else {
+                return
+            }
+            container.update(source: source)
+            
+        case .centerScale(let configs):
+            guard let container = container as? StackCenterScaleView<Content, Model> else {
+                return
+            }
+            container.update(source: source)
+        }
+    }
+    
 }
 
 // MARK: - StackColorItem
 
 #if DEBUG
 public final class StackColorItem: UIView, StackScrollContent {
+    
+    public typealias Model = Int
     
     public lazy var text: UILabel = {
         let label = UILabel()
@@ -579,8 +771,12 @@ public final class StackColorItem: UIView, StackScrollContent {
         layer.shadowPath = UIBezierPath(rect: bounds).cgPath
     }
     
-    public func render() {
-        text.text = "\(page)"
+    public func renderPlaceholder() {
+        backgroundColor = .purple
+    }
+    
+    public func render(model: Model) {
+        text.text = "\(page)-\(model)"
         backgroundColor = Self.colors[page % Self.colors.count]
     }
     

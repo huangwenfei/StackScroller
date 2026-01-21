@@ -8,13 +8,16 @@
 import UIKit
 import Yang
 
-open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollViewProtocol
-    where Content: StackScrollContent
+open class StackNormalView<Content, Model>: UIView, UIScrollViewDelegate, StackScrollViewProtocol
+    where Content: StackScrollContent, Model: Hashable, Content.Model == Model
 {
     
     // MARK: Type
     public typealias Content = Content
     public typealias Configuration = StackNormalViewConfiguration
+    
+    public typealias SourceProviderLegacy = (_ page: Int) -> Content.Model
+    public typealias SourceProviderAsync = (_ page: Int) async -> Content.Model
     
     // MARK: Properties - Base
     open var oldCurrentPage: Int = 0
@@ -24,6 +27,16 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     
     open var count: Int = 0
     open private(set) var configuration: Configuration
+    
+    open private(set) var isAsyncSource: Bool
+    open var sourceProviderLegacy: SourceProviderLegacy?
+    
+    @available(iOS 13.0, *)
+    open var sourceProviderAsync: SourceProviderAsync? {
+        get { _sourceProviderAsync }
+        set { _sourceProviderAsync = newValue }
+    }
+    private var _sourceProviderAsync: SourceProviderAsync?
     
     open var pageChange: PageChangeClosure
     
@@ -47,20 +60,41 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     open var endScroll: StackEndScrollClosure? = nil
     
     // MARK: Init
-    public convenience init() {
-        self.init(frame: .zero, currentPage: 0, count: 0, configuration: .init())
-    }
-    
     public init(
         frame: CGRect = .zero,
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        sourceProviderLegacy: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
+        self.isAsyncSource = false
+        self.sourceProviderLegacy = sourceProviderLegacy
+        self._sourceProviderAsync = nil
+        self.pageChange = pageChange
+        self.configuration = configuration
+        super.init(frame: frame)
+        commit()
+    }
+    
+    @available(iOS 13.0, *)
+    public init(
+        frame: CGRect = .zero,
+        currentPage: Int = 0,
+        count: Int,
+        configuration: Configuration,
+        sourceProviderAsync: SourceProviderAsync?,
+        pageChange: @escaping PageChangeClosure = { _,_ in }
+    ) {
+        self.oldCurrentPage = currentPage
+        self.currentPage = currentPage
+        self.count = count
+        self.isAsyncSource = true
+        self.sourceProviderLegacy = nil
+        self._sourceProviderAsync = sourceProviderAsync
         self.pageChange = pageChange
         self.configuration = configuration
         super.init(frame: frame)
@@ -78,6 +112,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     
     deinit {
         removeScrollObservers()
+        sourceProviderLegacy = nil
+        _sourceProviderAsync = nil
         pageChange = { _,_ in }
         visiableItems = []
         reuseableItems = []
@@ -400,8 +436,9 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             item.page = page
             container.addSubview(item)
             visiableItems.append(item)
-            item.renderIfNeed()
-            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item) { [weak self] in
+                self?.itemAnimating(item, isShow: true)
+            }
 //            print("====>>", #function, #line, "reuseable", page, item.frame)
             return item
         }
@@ -411,8 +448,9 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             item.page = page
             container.addSubview(item)
             visiableItems.append(item)
-            item.renderIfNeed()
-            itemAnimating(item, isShow: true)
+            renderIfNeed(page: page, item: item) { [weak self] in
+                self?.itemAnimating(item, isShow: true)
+            }
 //            print("====>>", #function, #line, "create", page, item.frame)
             return item
         }
@@ -542,6 +580,23 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         adjustContentSize(by: count)
         if (0 ..< count).contains(currentPage) == false { currentPage = 0 }
         scrollToCenterPoint(currentPage: currentPage)
+    }
+    
+    open func update(source: SourceProviderLegacy?) {
+        isAsyncSource = false
+        sourceProviderLegacy = source
+        reuseableItems.forEach({ $0.resetForReuse() })
+        visiableItems.forEach({ $0.resetForReuse() })
+        update(currentPage: currentPage)
+    }
+    
+    @available(iOS 13.0, *)
+    open func update(source: SourceProviderAsync?) {
+        isAsyncSource = true
+        _sourceProviderAsync = source
+        reuseableItems.forEach({ $0.resetForReuse() })
+        visiableItems.forEach({ $0.resetForReuse() })
+        update(currentPage: currentPage)
     }
     
 }

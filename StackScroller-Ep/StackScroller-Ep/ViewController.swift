@@ -11,8 +11,8 @@ import StackScroller
 
 class ViewController: UIViewController {
     
-    public private(set) lazy var stackCarousel: StackScrollView<StackColorItem> = {
-        let view = StackScrollView<StackColorItem>(
+    public private(set) lazy var stackCarousel: StackScrollView<StackColorItem, Int> = {
+        let view = StackScrollView<StackColorItem, Int>(
             frame: .zero,
             currentPage: 0,
             count: 12, // 6,
@@ -24,7 +24,10 @@ class ViewController: UIViewController {
                 baseline: .bottom,
                 size: .rect(150),
                 insets: .zero
-            ))
+            )),
+            sourceProviderLegacy: {
+                $0
+            }
         )
         view.setBeginObserver { stack in
             print(#function, #line, "Begin")
