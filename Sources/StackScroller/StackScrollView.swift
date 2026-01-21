@@ -257,6 +257,36 @@ public enum StackScrollViewMode: Hashable {
         case .centerScale:       return .centerScale
         }
     }
+    
+    public var configs: StackScrollViewConfigProtocol {
+        switch self {
+        case .normal(let configs):            return configs
+        case .normalCenterScale(let configs): return configs
+        case .centerScale(let configs):       return configs
+        }
+    }
+    
+    public var isNormal: Bool {
+        switch self {
+        case .normal: return true
+        default:      return false
+        }
+    }
+    
+    public var isNormalScale: Bool {
+        switch self {
+        case .normalCenterScale: return true
+        default:                 return false
+        }
+    }
+    
+    public var isCenterScale: Bool {
+        switch self {
+        case .centerScale: return true
+        default:           return false
+        }
+    }
+    
 }
 
 public enum StackScrollViewIntMode: Int, Hashable {
@@ -292,6 +322,9 @@ public protocol StackScrollViewProtocol: UIView, StackScrollViewFuncProtocol {
 }
 
 extension StackScrollViewProtocol {
+    public typealias SourceProviderLegacy = (_ page: Int) -> Content.Model
+    public typealias SourceProviderAsync = (_ page: Int) async -> Content.Model
+    
     public typealias PageChangeClosure = (_ old: Int, _ new: Int) -> Void
 }
 
@@ -368,6 +401,11 @@ extension StackScrollViewProtocol {
 }
 
 
+public protocol StackScrollViewConfigProtocol: Hashable {
+    
+}
+
+
 public protocol StackScrollViewFuncProtocol: UIView {
     
     func previewPage()
@@ -409,12 +447,16 @@ extension StackScrollViewFuncProtocol {
 }
 
 
-open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
-    where Content: StackScrollContent, Model: Hashable, Model == Content.Model
+open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
+    where Content: StackScrollContent
 {
     // MARK: Type
-    public typealias SourceProviderLegacy = (_ page: Int) -> Content.Model
-    public typealias SourceProviderAsync = (_ page: Int) async -> Content.Model
+    public typealias Content = Content
+    public typealias Model = Content.Model
+    
+    public typealias SourceProviderLegacy = (_ page: Int) -> Model
+    public typealias SourceProviderAsync = (_ page: Int) async -> Model
+    
     public typealias PageChangeClosure = StackScrollViewProtocol.PageChangeClosure
     
     // MARK: Properties
@@ -462,21 +504,21 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
         currentPage: Int = 0,
         count: Int,
         mode: StackScrollViewMode,
-        sourceProviderLegacy: SourceProviderLegacy?,
+        sourceProvider: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.mode = mode
         self.isAsyncSource = false
         super.init(frame: frame)
         
-        self.sourceProviderLegacy = sourceProviderLegacy
+        self.sourceProviderLegacy = sourceProvider
         self._sourceProviderAsync = nil
         
         createContainer(
             by: mode,
             currentPage: currentPage,
             count: count,
-            sourceProviderLegacy: sourceProviderLegacy,
+            sourceProvider: sourceProvider,
             pageChange: pageChange
         )
         container.yang.addToParent(self)
@@ -488,7 +530,7 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
         currentPage: Int = 0,
         count: Int,
         mode: StackScrollViewMode,
-        sourceProviderAsync: SourceProviderAsync?,
+        sourceProvider: SourceProviderAsync?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.mode = mode
@@ -496,13 +538,13 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
         super.init(frame: frame)
         
         self.sourceProviderLegacy = nil
-        self._sourceProviderAsync = sourceProviderAsync
+        self._sourceProviderAsync = sourceProvider
         
         createContainer(
             by: mode,
             currentPage: currentPage,
             count: count,
-            sourceProviderAsync: sourceProviderAsync,
+            sourceProvider: sourceProvider,
             pageChange: pageChange
         )
         container.yang.addToParent(self)
@@ -516,37 +558,37 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
         by mode: StackScrollViewMode,
         currentPage: Int = 0,
         count: Int,
-        sourceProviderLegacy: SourceProviderLegacy?,
+        sourceProvider: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         switch mode {
         case .normal(let configs):
-            container = StackNormalView<Content, Model>(
+            container = StackNormalView<Content>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
-                sourceProviderLegacy: sourceProviderLegacy,
+                sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
             
         case .normalCenterScale(let configs):
-            container = StackNormalCenterScaleView<Content, Model>(
+            container = StackNormalCenterScaleView<Content>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
-                sourceProviderLegacy: sourceProviderLegacy,
+                sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
             
         case .centerScale(let configs):
-            container = StackCenterScaleView<Content, Model>(
+            container = StackCenterScaleView<Content>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
-                sourceProviderLegacy: sourceProviderLegacy,
+                sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
         }
@@ -557,37 +599,37 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
         by mode: StackScrollViewMode,
         currentPage: Int = 0,
         count: Int,
-        sourceProviderAsync: SourceProviderAsync?,
+        sourceProvider: SourceProviderAsync?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         switch mode {
         case .normal(let configs):
-            container = StackNormalView<Content, Model>(
+            container = StackNormalView<Content>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
-                sourceProviderAsync: sourceProviderAsync,
+                sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
             
         case .normalCenterScale(let configs):
-            container = StackNormalCenterScaleView<Content, Model>(
+            container = StackNormalCenterScaleView<Content>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
-                sourceProviderAsync: sourceProviderAsync,
+                sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
             
         case .centerScale(let configs):
-            container = StackCenterScaleView<Content, Model>(
+            container = StackCenterScaleView<Content>(
                 frame: frame,
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
-                sourceProviderAsync: sourceProviderAsync,
+                sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
         }
@@ -641,7 +683,7 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
                 by: mode,
                 currentPage: container.currentPage,
                 count: container.count,
-                sourceProviderAsync: sourceProviderAsync,
+                sourceProvider: sourceProviderAsync,
                 pageChange: container.pageChange
             )
         } else {
@@ -649,7 +691,7 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
                 by: mode,
                 currentPage: container.currentPage,
                 count: container.count,
-                sourceProviderLegacy: sourceProviderLegacy,
+                sourceProvider: sourceProviderLegacy,
                 pageChange: container.pageChange
             )
         }
@@ -667,25 +709,69 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
         
     }
     
+    open func update(configs: StackScrollViewConfigProtocol) {
+        
+        let mode: StackScrollViewMode
+        let old = self.mode.configs
+        
+        if
+            let new = configs as? StackNormalViewConfiguration,
+            self.mode.isNormal
+        {
+            if (old as! StackNormalViewConfiguration) == new {
+                return
+            }
+            
+            mode = .normal(configs: new)
+        }
+        else if
+            let new = configs as? StackNormalCenterScaleViewConfiguration,
+            self.mode.isNormalScale
+        {
+            if (old as! StackNormalCenterScaleViewConfiguration) == new {
+                return
+            }
+            
+            mode = .normalCenterScale(configs: new)
+        }
+        else if
+            let new = configs as? StackCenterScaleViewConfiguration,
+            self.mode.isCenterScale
+        {
+            if (old as! StackCenterScaleViewConfiguration) == new {
+                return
+            }
+            
+            mode = .centerScale(configs: new)
+        }
+        else {
+            mode = self.mode
+            debugPrint(#function, #line, "Unsupporting type: \(self.mode) \(configs) !")
+        }
+        
+        update(mode: mode)
+        
+    }
+    
     open func update(source: SourceProviderLegacy?) {
         isAsyncSource = false
         sourceProviderLegacy = source
         
         switch mode {
         case .normal(let configs):
-            guard let container = container as? StackNormalView<Content, Model> else {
+            guard let container = container as? StackNormalView<Content> else {
                 return
             }
             container.update(source: source)
             
         case .normalCenterScale(let configs):
-            guard let container = container as? StackNormalCenterScaleView<Content, Model> else {
+            guard let container = container as? StackNormalCenterScaleView<Content> else {
                 return
             }
             container.update(source: source)
             
         case .centerScale(let configs):
-            guard let container = container as? StackCenterScaleView<Content, Model> else {
+            guard let container = container as? StackCenterScaleView<Content> else {
                 return
             }
             container.update(source: source)
@@ -699,19 +785,19 @@ open class StackScrollView<Content, Model>: UIView, StackScrollViewFuncProtocol
         
         switch mode {
         case .normal(let configs):
-            guard let container = container as? StackNormalView<Content, Model> else {
+            guard let container = container as? StackNormalView<Content> else {
                 return
             }
             container.update(source: source)
             
         case .normalCenterScale(let configs):
-            guard let container = container as? StackNormalCenterScaleView<Content, Model> else {
+            guard let container = container as? StackNormalCenterScaleView<Content> else {
                 return
             }
             container.update(source: source)
             
         case .centerScale(let configs):
-            guard let container = container as? StackCenterScaleView<Content, Model> else {
+            guard let container = container as? StackCenterScaleView<Content> else {
                 return
             }
             container.update(source: source)

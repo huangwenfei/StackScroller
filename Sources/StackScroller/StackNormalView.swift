@@ -8,16 +8,14 @@
 import UIKit
 import Yang
 
-open class StackNormalView<Content, Model>: UIView, UIScrollViewDelegate, StackScrollViewProtocol
-    where Content: StackScrollContent, Model: Hashable, Content.Model == Model
+open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollViewProtocol
+    where Content: StackScrollContent
 {
     
     // MARK: Type
     public typealias Content = Content
+    public typealias Model = Content.Model
     public typealias Configuration = StackNormalViewConfiguration
-    
-    public typealias SourceProviderLegacy = (_ page: Int) -> Content.Model
-    public typealias SourceProviderAsync = (_ page: Int) async -> Content.Model
     
     // MARK: Properties - Base
     open var oldCurrentPage: Int = 0
@@ -65,14 +63,14 @@ open class StackNormalView<Content, Model>: UIView, UIScrollViewDelegate, StackS
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
-        sourceProviderLegacy: SourceProviderLegacy?,
+        sourceProvider: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
         self.isAsyncSource = false
-        self.sourceProviderLegacy = sourceProviderLegacy
+        self.sourceProviderLegacy = sourceProvider
         self._sourceProviderAsync = nil
         self.pageChange = pageChange
         self.configuration = configuration
@@ -86,7 +84,7 @@ open class StackNormalView<Content, Model>: UIView, UIScrollViewDelegate, StackS
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
-        sourceProviderAsync: SourceProviderAsync?,
+        sourceProvider: SourceProviderAsync?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
@@ -94,7 +92,7 @@ open class StackNormalView<Content, Model>: UIView, UIScrollViewDelegate, StackS
         self.count = count
         self.isAsyncSource = true
         self.sourceProviderLegacy = nil
-        self._sourceProviderAsync = sourceProviderAsync
+        self._sourceProviderAsync = sourceProvider
         self.pageChange = pageChange
         self.configuration = configuration
         super.init(frame: frame)
@@ -601,7 +599,7 @@ open class StackNormalView<Content, Model>: UIView, UIScrollViewDelegate, StackS
     
 }
 
-public struct StackNormalViewConfiguration: Hashable {
+public struct StackNormalViewConfiguration: StackScrollViewConfigProtocol {
     
     // MARK: Static
     public static let simple: Self = .init()

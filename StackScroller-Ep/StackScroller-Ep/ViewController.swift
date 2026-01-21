@@ -11,13 +11,12 @@ import StackScroller
 
 class ViewController: UIViewController {
     
-    public private(set) lazy var stackCarousel: StackScrollView<StackColorItem, Int> = {
-        let view = StackScrollView<StackColorItem, Int>(
+    public private(set) lazy var stackCarousel: StackScrollView<StackColorItem> = {
+        let view = StackScrollView<StackColorItem>(
             frame: .zero,
             currentPage: 0,
             count: 12, // 6,
-            mode:
-            .centerScale(configs: .init(
+            mode: .centerScale(configs: .init(
                 scaleStep: 0.07,
                 offsetStep: 0.25,
                 isScaleOffset: false,
@@ -25,7 +24,7 @@ class ViewController: UIViewController {
                 size: .rect(150),
                 insets: .zero
             )),
-            sourceProviderLegacy: {
+            sourceProvider: {
                 $0
             }
         )
