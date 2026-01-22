@@ -547,12 +547,9 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
 
         guard vaildPage(page) else { return nil }
         
-        let state: StackScrollContentState = .init(isSelected: page == currentPage)
-        
         if let item = visiableItems.first(where: { $0.page == page }) {
             item.frame = itemFrame(at: page)
             item.scaleStepZIndex = loopPage.zIndex(page: page)
-            item.update(state: state)
             itemAnimatingIfNeed(item, isShow: true)
 //            print("====>>", #function, #line, "visiable", page, item.frame)
             return item
@@ -565,7 +562,7 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
             container.addSubview(item)
             visiableItems.append(item)
             itemAnimating(item, isShow: true)
-            renderIfNeed(page: page, item: item, state: state) { [weak self] in
+            renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "reuseable", page, item.frame, item.scaleStepZIndex)
@@ -579,7 +576,7 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
             container.addSubview(item)
             visiableItems.append(item)
             itemAnimating(item, isShow: true)
-            renderIfNeed(page: page, item: item, state: state) { [weak self] in
+            renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "create", page, item.frame, item.scaleStepZIndex)
@@ -751,10 +748,29 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
     }
     
     // MARK: Relayout
-    open func relayout() {
-        layoutElements(by: currentPage)
-        rerangeElements(currentPage: currentPage)
-        transformElements(currentPage: currentPage)
+    open func relayoutCurrent() {
+        guard let item = visiableItems.first(where: { $0.page == currentPage }) else {
+            return
+        }
+        
+        item.frame = itemFrame(at: currentPage)
+        
+        let scaleStep = configuration.scaleStep
+        let offsetStep = configuration.offsetStep
+        let isScaleOffset = configuration.isScaleOffset
+            
+        let scaleRect = self.scaleRect(
+            scaleStep: scaleStep,
+            offsetStep: offsetStep,
+            isScaleOffset: isScaleOffset
+        )
+        
+        transformElement(
+            item: item,
+            currentPage: currentPage,
+            scaleStep: scaleStep,
+            scaleRect: scaleRect
+        )
     }
     
     // MARK: Scroll

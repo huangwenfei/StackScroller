@@ -423,10 +423,7 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         
         guard vaildPage(page) else { return nil }
         
-        let state: StackScrollContentState = .init(isSelected: page == currentPage)
-        
         if let item = visiableItems.first(where: { $0.page == page }) {
-            item.update(state: state)
             itemAnimatingIfNeed(item, isShow: true)
 //            print("====>>", #function, #line, "visiable", page, item.frame)
             return item
@@ -438,7 +435,7 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             container.addSubview(item)
             visiableItems.append(item)
             itemAnimating(item, isShow: true)
-            renderIfNeed(page: page, item: item, state: state) { [weak self] in
+            renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "reuseable", page, item.frame)
@@ -451,7 +448,7 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             container.addSubview(item)
             visiableItems.append(item)
             itemAnimating(item, isShow: true)
-            renderIfNeed(page: page, item: item, state: state) { [weak self] in
+            renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
             }
 //            print("====>>", #function, #line, "create", page, item.frame)
@@ -552,9 +549,12 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     }
     
     // MARK: Relayout
-    open func relayout() {
-        adjustContentSize(by: count)
-        layoutElements(by: currentPage)
+    open func relayoutCurrent() {
+        guard let item = visiableItems.first(where: { $0.page == currentPage }) else {
+            return
+        }
+        
+        item.frame = itemFrame(at: currentPage)
     }
     
     // MARK: Scroll
