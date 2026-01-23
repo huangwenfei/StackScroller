@@ -121,6 +121,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     open override func layoutSubviews() {
         super.layoutSubviews()
         
+        guard isVaildSize else { return }
+        
         let spacing = configuration.spacing
         container.frame = .init(
             origin: .init(x: -spacing * 0.5, y: 0),
@@ -233,6 +235,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         
+        guard isVaildSize else { return }
+        
         let oldCurrentPage = currentPage
         
         /// - Tag: Page
@@ -256,6 +260,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         
+        guard isVaildSize else { return }
+        
         guard decelerate else { return }
         
         scrollToCenterPoint(currentPage: currentPage)
@@ -263,6 +269,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     }
     
     public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+        
+        guard isVaildSize else { return }
         
         scrollToCenterPoint(currentPage: currentPage)
         
@@ -540,21 +548,12 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         let x: CGFloat
         
         if isFillPage {
-            x = (page * (width + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5)
+            x = (page * (width + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5) // * (page > 0 ? 1 : 0)
         } else {
-            x = (page * (itemWidth + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5)
+            x = (page * (itemWidth + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5)// * (page > 0 ? 1 : 0)
         }
         
         return CGRect(x: x, y: y, width: itemWidth, height: itemHeight)
-    }
-    
-    // MARK: Relayout
-    open func relayoutCurrent() {
-        guard let item = visiableItems.first(where: { $0.page == currentPage }) else {
-            return
-        }
-        
-        item.frame = itemFrame(at: currentPage)
     }
     
     // MARK: Scroll

@@ -412,8 +412,6 @@ public protocol StackScrollViewConfigProtocol: Hashable {
 
 public protocol StackScrollViewFuncProtocol: UIView {
     
-    func relayoutCurrent()
-    
     func previewPage()
     func nextPage()
     /// If there are no items on the current page, we will automatically jump to the last item.
@@ -436,6 +434,18 @@ extension StackScrollViewFuncProtocol {
     public typealias StackBeginScrollClosure = (_ stack: any StackScrollViewProtocol) -> Void
     public typealias StackChangeScrollClosure = (_ stack: any StackScrollViewProtocol, _ progress: CGFloat) -> Void
     public typealias StackEndScrollClosure = (_ stack: any StackScrollViewProtocol) -> Void
+}
+
+extension StackScrollViewFuncProtocol {
+    var isVaildSize: Bool {
+        bounds.width != .zero && bounds.height != .zero
+    }
+    
+    public func setNeedsUpdate() {
+        setNeedsUpdateConstraints()
+        setNeedsLayout()
+        setNeedsDisplay()
+    }
 }
 
 extension StackScrollViewFuncProtocol {
@@ -658,10 +668,6 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
     }
     
     // MARK: StackScrollViewFuncProtocol
-    open func relayoutCurrent() {
-        self.container.relayoutCurrent()
-    }
-    
     open func previewPage() {
         container.previewPage()
     }

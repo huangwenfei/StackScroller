@@ -119,6 +119,8 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
     open override func layoutSubviews() {
         super.layoutSubviews()
         
+        guard isVaildSize else { return }
+        
         container.frame = bounds
         
         layoutElements(by: currentPage)
@@ -745,32 +747,6 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
 //        print(#function, #line, page, level, offsetWidth, totalOffsetWidths, CGRect(x: x, y: y, width: itemWidth, height: itemHeight))
         
         return CGRect(x: x, y: y, width: itemWidth, height: itemHeight)
-    }
-    
-    // MARK: Relayout
-    open func relayoutCurrent() {
-        guard let item = visiableItems.first(where: { $0.page == currentPage }) else {
-            return
-        }
-        
-        item.frame = itemFrame(at: currentPage)
-        
-        let scaleStep = configuration.scaleStep
-        let offsetStep = configuration.offsetStep
-        let isScaleOffset = configuration.isScaleOffset
-            
-        let scaleRect = self.scaleRect(
-            scaleStep: scaleStep,
-            offsetStep: offsetStep,
-            isScaleOffset: isScaleOffset
-        )
-        
-        transformElement(
-            item: item,
-            currentPage: currentPage,
-            scaleStep: scaleStep,
-            scaleRect: scaleRect
-        )
     }
     
     // MARK: Scroll

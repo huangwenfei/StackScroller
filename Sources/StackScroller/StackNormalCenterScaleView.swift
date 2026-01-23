@@ -121,6 +121,8 @@ where Content: StackScrollContent
     open override func layoutSubviews() {
         super.layoutSubviews()
         
+        guard isVaildSize else { return }
+        
         let spacing = configuration.spacing
         container.frame = .init(
             origin: .init(x: -spacing * 0.5, y: 0),
@@ -236,6 +238,8 @@ where Content: StackScrollContent
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         
+        guard isVaildSize else { return }
+        
         let oldCurrentPage = currentPage
         
         /// - Tag: Page
@@ -262,6 +266,8 @@ where Content: StackScrollContent
     
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         
+        guard isVaildSize else { return }
+        
         guard decelerate else { return }
         
         scrollToCenterPoint(currentPage: currentPage)
@@ -270,6 +276,8 @@ where Content: StackScrollContent
     }
     
     public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+        
+        guard isVaildSize else { return }
         
         scrollToCenterPoint(currentPage: currentPage)
         finishScaleStepAnimations(currentPage: currentPage)
@@ -629,33 +637,9 @@ where Content: StackScrollContent
         
         let spacing = configuration.spacing
         
-        let x = (page * (itemWidth + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5)
+        let x = (page * (itemWidth + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5) * (page > 0 ? 1 : 0)
         
         return CGRect(x: x, y: y, width: itemWidth, height: itemHeight)
-    }
-    
-    // MARK: Relayout
-    open func relayoutCurrent() {
-        guard let item = visiableItems.first(where: { $0.page == currentPage }) else {
-            return
-        }
-        
-        item.frame = itemFrame(at: currentPage)
-        
-        let scaleStep = configuration.scaleStep
-        let scaleRect = self.scaleRect(scaleStep: scaleStep, container: container)
-        
-        transformElement(
-            item: item,
-            currentPage: currentPage,
-            scaleStep: scaleStep,
-            scaleRect: scaleRect
-        )
-        
-        if let model = item.model {
-            item.render(model: model)
-        }
-        
     }
     
     // MARK: Scroll
