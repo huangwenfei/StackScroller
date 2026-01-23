@@ -26,6 +26,8 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
     open var count: Int = 0
     open private(set) var configuration: Configuration
     
+    open var placeholderSourceProvider: PlaceholderSourceProvider
+    
     open private(set) var isAsyncSource: Bool
     open private(set) var sourceProviderLegacy: SourceProviderLegacy?
     
@@ -62,12 +64,14 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = false
         self.sourceProviderLegacy = sourceProvider
         self._sourceProviderAsync = nil
@@ -83,12 +87,14 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderAsync?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = true
         self.sourceProviderLegacy = nil
         self._sourceProviderAsync = sourceProvider
@@ -126,6 +132,8 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
         layoutElements(by: currentPage)
         rerangeElements(currentPage: currentPage)
         transformElements(currentPage: currentPage)
+        
+        _update(currentPage: currentPage)
     }
     
     open func sideCount(count: Int) -> Int {
@@ -560,9 +568,11 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
             item.tag = page
             item.frame = itemFrame(at: page)
             item.page = page
+            item.alpha = .zero
             item.scaleStepZIndex = loopPage.zIndex(page: page)
             container.addSubview(item)
             visiableItems.append(item)
+            item.renderPlaceholder(model: placeholderSourceProvider(page))
             itemAnimating(item, isShow: true)
             renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
@@ -575,8 +585,10 @@ open class StackCenterScaleView<Content>: UIView, UIScrollViewDelegate, StackScr
             item.tag = page
             item.page = page
             item.scaleStepZIndex = loopPage.zIndex(page: page)
+            item.alpha = .zero
             container.addSubview(item)
             visiableItems.append(item)
+            item.renderPlaceholder(model: placeholderSourceProvider(page))
             itemAnimating(item, isShow: true)
             renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)

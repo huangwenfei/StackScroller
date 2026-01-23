@@ -26,6 +26,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     open var count: Int = 0
     open private(set) var configuration: Configuration
     
+    open var placeholderSourceProvider: PlaceholderSourceProvider
+    
     open private(set) var isAsyncSource: Bool
     open var sourceProviderLegacy: SourceProviderLegacy?
     
@@ -63,12 +65,14 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = false
         self.sourceProviderLegacy = sourceProvider
         self._sourceProviderAsync = nil
@@ -84,12 +88,14 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderAsync?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = true
         self.sourceProviderLegacy = nil
         self._sourceProviderAsync = sourceProvider
@@ -130,6 +136,8 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
         )
         adjustContentSize(by: count)
         layoutElements(by: currentPage)
+        
+        update(currentPage: currentPage)
     }
     
     open func adjustContentSize(by count: Int) {
@@ -440,8 +448,10 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             item.tag = page
             item.frame = itemFrame(at: page)
             item.page = page
+            item.alpha = .zero
             container.addSubview(item)
             visiableItems.append(item)
+            item.renderPlaceholder(model: placeholderSourceProvider(page))
             itemAnimating(item, isShow: true)
             renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
@@ -453,8 +463,10 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
             let item = Content(frame: itemFrame(at: page))
             item.tag = page
             item.page = page
+            item.alpha = .zero
             container.addSubview(item)
             visiableItems.append(item)
+            item.renderPlaceholder(model: placeholderSourceProvider(page))
             itemAnimating(item, isShow: true)
             renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
@@ -479,33 +491,36 @@ open class StackNormalView<Content>: UIView, UIScrollViewDelegate, StackScrollVi
     
     private func itemAnimating(_ item: Content, duration: TimeInterval = 0.2, isShow: Bool, completion: ((_ isFinished: Bool) -> Void)? = nil) {
         
-        if isShow {
-            item.alpha = 0
-            UIView.animate(withDuration: duration) {
-                item.alpha = 1
-            } completion: { isFinished in
-                completion?(isFinished)
-            }
-        } else {
-            guard let snap = item.snapshotView(afterScreenUpdates: false) else {
-                completion?(true)
-                return
-            }
-            
-            snap.frame = item.frame
-            snap.alpha = 1
-            container.addSubview(snap)
-            item.isHidden = true
-            
-            UIView.animate(withDuration: duration) {
-                snap.alpha = 0
-            } completion: { isFinished in
-                completion?(isFinished)
-                snap.removeFromSuperview()
-                item.isHidden = false
-            }
-            
-        }
+        item.alpha = isShow ? 1.0 : .zero
+        completion?(true)
+        
+//        if isShow {
+//            item.alpha = 0
+//            UIView.animate(withDuration: duration) {
+//                item.alpha = 1
+//            } completion: { isFinished in
+//                completion?(isFinished)
+//            }
+//        } else {
+//            guard let snap = item.snapshotView(afterScreenUpdates: false) else {
+//                completion?(true)
+//                return
+//            }
+//            
+//            snap.frame = item.frame
+//            snap.alpha = 1
+//            container.addSubview(snap)
+//            item.isHidden = true
+//            
+//            UIView.animate(withDuration: duration) {
+//                snap.alpha = 0
+//            } completion: { isFinished in
+//                completion?(isFinished)
+//                snap.removeFromSuperview()
+//                item.isHidden = false
+//            }
+//            
+//        }
         
     }
     

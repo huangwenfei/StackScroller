@@ -26,6 +26,8 @@ where Content: StackScrollContent
     open var count: Int = 0
     open private(set) var configuration: Configuration
     
+    open var placeholderSourceProvider: PlaceholderSourceProvider
+    
     open private(set) var isAsyncSource: Bool
     open private(set) var sourceProviderLegacy: SourceProviderLegacy?
     
@@ -63,12 +65,14 @@ where Content: StackScrollContent
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = false
         self.sourceProviderLegacy = sourceProvider
         self._sourceProviderAsync = nil
@@ -84,12 +88,14 @@ where Content: StackScrollContent
         currentPage: Int = 0,
         count: Int,
         configuration: Configuration,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderAsync?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.oldCurrentPage = currentPage
         self.currentPage = currentPage
         self.count = count
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = true
         self.sourceProviderLegacy = nil
         self._sourceProviderAsync = sourceProvider
@@ -132,6 +138,8 @@ where Content: StackScrollContent
         
         layoutElements(by: currentPage)
         transformElements(currentPage: currentPage)
+        
+        update(currentPage: currentPage)
     }
     
     open func adjustContentSize(by count: Int) {
@@ -525,8 +533,10 @@ where Content: StackScrollContent
             item.tag = page
             item.frame = itemFrame(at: page)
             item.page = page
+            item.alpha = .zero
             container.addSubview(item)
             visiableItems.append(item)
+            item.renderPlaceholder(model: placeholderSourceProvider(page))
             itemAnimating(item, isShow: true)
             renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
@@ -538,8 +548,10 @@ where Content: StackScrollContent
             let item = Content(frame: itemFrame(at: page))
             item.tag = page
             item.page = page
+            item.alpha = .zero
             container.addSubview(item)
             visiableItems.append(item)
+            item.renderPlaceholder(model: placeholderSourceProvider(page))
             itemAnimating(item, isShow: true)
             renderIfNeed(page: page, item: item) { [weak self] in
                 self?.itemAnimating(item, isShow: true)
@@ -555,7 +567,7 @@ where Content: StackScrollContent
         if isShow {
             if item.alpha == 1.0 { return }
         } else {
-            if item.alpha == 0.0 { return }
+            if item.alpha == .zero { return }
         }
         
         itemAnimating(item, duration: duration, isShow: isShow, completion: completion)
@@ -564,11 +576,11 @@ where Content: StackScrollContent
     
     private func itemAnimating(_ item: Content, duration: TimeInterval = 0.2, isShow: Bool, completion: ((_ isFinished: Bool) -> Void)? = nil) {
         
-        item.alpha = isShow ? 1.0 : 0.0
+        item.alpha = isShow ? 1.0 : .zero
         completion?(true)
         
 //        if isShow {
-//            item.alpha = 0
+//            item.alpha = .zero
 //            UIView.animate(withDuration: duration) {
 //                item.alpha = 1
 //            } completion: { isFinished in
@@ -577,21 +589,25 @@ where Content: StackScrollContent
 //            }
 //        } else {
 //            guard let snap = item.snapshotView(afterScreenUpdates: false) else {
-//                completion?(true)
+//                item.alpha = 1.0
+//                UIView.animate(withDuration: duration) {
+//                    item.alpha = .zero
+//                } completion: { isFinished in
+//                    if isFinished { item.alpha = .zero }
+//                    completion?(isFinished)
+//                }
 //                return
 //            }
 //            
 //            snap.frame = item.frame
 //            snap.alpha = 1
 //            container.addSubview(snap)
-//            item.isHidden = true
 //            
 //            UIView.animate(withDuration: duration) {
-//                snap.alpha = 0
+//                snap.alpha = .zero
 //            } completion: { isFinished in
 //                completion?(isFinished)
 //                snap.removeFromSuperview()
-//                item.isHidden = false
 //            }
 //        }
         
@@ -637,7 +653,7 @@ where Content: StackScrollContent
         
         let spacing = configuration.spacing
         
-        let x = (page * (itemWidth + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5) * (page > 0 ? 1 : 0)
+        let x = (page * (itemWidth + spacing)) + ((width - itemWidth) * 0.5) + (spacing * 0.5)
         
         return CGRect(x: x, y: y, width: itemWidth, height: itemHeight)
     }

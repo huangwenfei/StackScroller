@@ -10,11 +10,12 @@ import UIKit
 // MARK: StackScrollContent
  
 public protocol StackScrollContent: UIView {
+    associatedtype PlaceholderModel: Hashable
     associatedtype Model: Hashable
     var model: Model? { get set }
     var isDisplayed: Bool { get set }
     var page: Int { get set }
-    func renderPlaceholder()
+    func renderPlaceholder(model: PlaceholderModel)
     func render(model: Model)
     func prepareForReuse()
 }
@@ -307,10 +308,12 @@ public protocol StackScrollViewProtocol: UIView, StackScrollViewFuncProtocol {
     var currentPage: Int { get set }
     var count: Int { get set }
     
+    var placeholderSourceProvider: PlaceholderSourceProvider { get }
+    
     var isAsyncSource: Bool { get }
-    var sourceProviderLegacy: ((_ page: Int) -> Content.Model)? { get }
+    var sourceProviderLegacy: SourceProviderLegacy? { get }
     @available(iOS 13.0, *)
-    var sourceProviderAsync: ((_ page: Int) async -> Content.Model)? { get }
+    var sourceProviderAsync: SourceProviderAsync? { get }
     
     var pageChange: PageChangeClosure { get set }
     
@@ -324,6 +327,7 @@ public protocol StackScrollViewProtocol: UIView, StackScrollViewFuncProtocol {
 }
 
 extension StackScrollViewProtocol {
+    public typealias PlaceholderSourceProvider = (_ page: Int) -> Content.PlaceholderModel
     public typealias SourceProviderLegacy = (_ page: Int) -> Content.Model
     public typealias SourceProviderAsync = (_ page: Int) async -> Content.Model
     
@@ -358,16 +362,6 @@ extension StackScrollViewProtocol {
                 }
             }
         }
-        
-        if item.isDisplayed == false {
-            item.renderPlaceholder()
-        }
-        
-//        if isAsyncSource, #available(iOS 13.0, *) {
-//            print(#function, #line, sourceProviderLegacy, sourceProviderAsync)
-//        } else {
-//            print(#function, #line, sourceProviderLegacy)
-//        }
         
         if isAsyncSource, #available(iOS 13.0, *) {
             if sourceProviderAsync != nil {
@@ -468,8 +462,10 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
 {
     // MARK: Type
     public typealias Content = Content
+    public typealias PlaceholderModel = Content.PlaceholderModel
     public typealias Model = Content.Model
     
+    public typealias PlaceholderSourceProvider = (_ page: Int) -> PlaceholderModel
     public typealias SourceProviderLegacy = (_ page: Int) -> Model
     public typealias SourceProviderAsync = (_ page: Int) async -> Model
     
@@ -478,6 +474,8 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
     // MARK: Properties
     open var mode: StackScrollViewMode
     open private(set) var container: (any StackScrollViewProtocol)!
+    
+    open private(set) var placeholderSourceProvider: PlaceholderSourceProvider
     
     open private(set) var isAsyncSource: Bool
     open private(set) var sourceProviderLegacy: SourceProviderLegacy?
@@ -520,10 +518,12 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
         currentPage: Int = 0,
         count: Int,
         mode: StackScrollViewMode,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderLegacy?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.mode = mode
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = false
         super.init(frame: frame)
         
@@ -546,10 +546,12 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
         currentPage: Int = 0,
         count: Int,
         mode: StackScrollViewMode,
+        placeholderSourceProvider: @escaping PlaceholderSourceProvider,
         sourceProvider: SourceProviderAsync?,
         pageChange: @escaping PageChangeClosure = { _,_ in }
     ) {
         self.mode = mode
+        self.placeholderSourceProvider = placeholderSourceProvider
         self.isAsyncSource = true
         super.init(frame: frame)
         
@@ -584,6 +586,7 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                placeholderSourceProvider: placeholderSourceProvider,
                 sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
@@ -594,6 +597,7 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                placeholderSourceProvider: placeholderSourceProvider,
                 sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
@@ -604,6 +608,7 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                placeholderSourceProvider: placeholderSourceProvider,
                 sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
@@ -625,6 +630,7 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                placeholderSourceProvider: placeholderSourceProvider,
                 sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
@@ -635,6 +641,7 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                placeholderSourceProvider: placeholderSourceProvider,
                 sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
@@ -645,6 +652,7 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
                 currentPage: currentPage,
                 count: count,
                 configuration: configs,
+                placeholderSourceProvider: placeholderSourceProvider,
                 sourceProvider: sourceProvider,
                 pageChange: pageChange
             )
@@ -827,6 +835,7 @@ open class StackScrollView<Content>: UIView, StackScrollViewFuncProtocol
 #if DEBUG
 public final class StackColorItem: UIView, StackScrollContent {
     
+    public typealias PlaceholderModel = Int
     public typealias Model = Int
     
     public var model: Int? = nil
@@ -875,7 +884,7 @@ public final class StackColorItem: UIView, StackScrollContent {
         layer.shadowPath = UIBezierPath(rect: bounds).cgPath
     }
     
-    public func renderPlaceholder() {
+    public func renderPlaceholder(model: PlaceholderModel) {
         backgroundColor = .purple
     }
     
